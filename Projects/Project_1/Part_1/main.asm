@@ -3,26 +3,26 @@
 ; Title: HVAC Control
 ;---------------------------------------------
 ; Purpose: 
-;	  The program controls a heating, ventilation, and air conditioning (HVAC) system
-;   based on a reference temperature and a measured temperature.
-;   The program compares the temperatures and activates heating or cooling accordingly.
-;   The temperatures are then converted to their decimal digit representations for display.
+;	The program controls a heating, ventilation, and air conditioning (HVAC) system
+;   	based on a reference temperature and a measured temperature.
+;   	The program compares the temperatures and activates heating or cooling accordingly.
+;   	The temperatures are then converted to their decimal digit representations for display.
 ;
 ; Dependencies: NONE
 ; Compiler: 	MPLABX IDE v6.20
 ; Author: 		Huy Nguyen 
 ; OUTPUTS: 
-       PORTD1 Heating Control with LED
-;		   PORTD2 Cooling Control with LED
+;       PORTD1 Heating Control with LED
+;	PORTD2 Cooling Control with LED
 ;	
 ; INPUTS: 
-        REG 0x20 refTemp  - Reference temperature
-;   	  REG 0x21 measTemp - Measured temperature
-;		    REG 0x22 contReg  - Control Register
+;        REG 0x20 refTemp  - Reference temperature
+;   	 REG 0x21 measTemp - Measured temperature
+;	 REG 0x22 contReg  - Control Register
 ;	
 ; Versions:
 ;  	V1.0: 03/08/2025 
-;  	V1.1: TBD
+;  	V1.1: 03/09/2025 - function to handle negative measTemp
 ;---------------------------------------------
 ;
 #include "MyConfig.inc"
@@ -88,8 +88,11 @@ _start:
     MOVLW	measTempInput
     MOVWF	measTemp,1
 
+_isNegative:	; Check if measTemp is negative (bit 7 = 1)
+    BTFSC   measTemp,7,1        ; Skip if bit 7 is clear (positive)
+    GOTO    HEAT_ON             ; If negative, measTemp < refTemp, run HEAT_ON
+
 _main:   			; Compare measTemp to refTemp
-    
     MOVFF	measTemp, WREG
     CPFSEQ	refTemp,1 	; if measTemp = refTemp skip next instruction 
     GOTO	COMPARE_TEMPS	; measTemp ≠ refTemp, need to determine heating or cooling
@@ -98,7 +101,7 @@ _main:   			; Compare measTemp to refTemp
     CLRF	contReg,1       ; Set contReg to 0
     BCF		LED1,1		; Turn off Heating
     BCF		LED2,2		; Turn off Cooling
-    GOTO	_main
+    GOTO	_isNegative
 
 COMPARE_TEMPS:
     MOVFF	measTemp, WREG  ; Reload measTemp into WREG
@@ -111,13 +114,13 @@ HEAT_ON:				; measTemp < refTemp, start heating process
     MOVWF	contReg,1
     BCF		LED2,2		; Turn off Cooling
     BSF		LED1,1		; Turn on Heating
-    GOTO	_main	 
+    GOTO	_isNegative	 
 
 COOL_ON:				; measTemp > refTemp, start cooling process
     MOVLW	0x02
     MOVWF	contReg,1
     BCF		LED1,1		; Turn off Heating
     BSF		LED2,2		; Turn on Cooling
-    GOTO	_main
+    GOTO	_isNegative
 
 END
