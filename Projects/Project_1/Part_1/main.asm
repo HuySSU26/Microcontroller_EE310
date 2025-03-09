@@ -10,7 +10,7 @@
 ;
 ; Dependencies: NONE
 ; Compiler: 	MPLABX IDE v6.20
-; Author: 		Huy Nguyen 
+; Author: 	Huy Nguyen 
 ; OUTPUTS: 
 ;       PORTD1 Heating Control with LED
 ;	PORTD2 Cooling Control with LED
@@ -56,13 +56,13 @@ contReg 	EQU	0x22
 ;---------------------------------------------
 ; for requiments - R9
 refTemp_dec1	EQU	0x60
-refTemp_dec10	EQU 0x61
-refTemp_dec100	EQU 0x62
+refTemp_dec10	EQU 	0x61
+refTemp_dec100	EQU 	0x62
 
-; for requiments - R9
-measTemp_dec1	EQU 0x70
-measTemp_dec10	EQU 0x71
-measTemp_dec100 EQU 0x72
+; for requiments - R10
+measTemp_dec1	EQU 	0x70
+measTemp_dec10	EQU 	0x71
+measTemp_dec100 EQU 	0x72
 ;
 ;---------------------------------------------
 ; Main Program
@@ -77,10 +77,7 @@ measTemp_dec100 EQU 0x72
     ORG          0x20           ; Begin assembly at 0x20 (R7)
 	
 _start:	
-    
     CLRF	TRISD	; initialize PORTD as output
-    
-    CLRF	STATUS	; initialize STATUS Register
 	
     ; Load input values
     MOVLW	refTempInput
@@ -89,8 +86,8 @@ _start:
     MOVWF	measTemp,1
 
 _isNegative:	; Check if measTemp is negative (bit 7 = 1)
-    BTFSC   measTemp,7,1        ; Skip if bit 7 is clear (positive)
-    GOTO    HEAT_ON             ; If negative, measTemp < refTemp, run HEAT_ON
+    BTFSC   measTemp,7,1        ; Skip next instruction if bit 7 is clear (measTemp > 0)
+    GOTO    HEAT_ON             ;  measTemp < 0, run HEAT_ON
 
 _main:   			; Compare measTemp to refTemp
     MOVFF	measTemp, WREG
@@ -109,14 +106,14 @@ COMPARE_TEMPS:
     GOTO	COOL_ON		; measTemp > refTemp, so go to COOL_ON (R1)
     GOTO	HEAT_ON		; measTemp < refTemp, so go to HEAT_ON (R2)
 
-HEAT_ON:				; measTemp < refTemp, start heating process
+HEAT_ON:			; measTemp < refTemp, start heating process
     MOVLW	0x01
     MOVWF	contReg,1
     BCF		LED2,2		; Turn off Cooling
     BSF		LED1,1		; Turn on Heating
     GOTO	_isNegative	 
 
-COOL_ON:				; measTemp > refTemp, start cooling process
+COOL_ON:			; measTemp > refTemp, start cooling process
     MOVLW	0x02
     MOVWF	contReg,1
     BCF		LED1,1		; Turn off Heating
