@@ -5,5 +5,5 @@ PROJECT # 1
   The code is working correctly for all three case of positive temperature.  Need to revise to handle negative temp.
 03/09/25   Revise main.asm:
   Added function to handle negative measTemp value. Need to work on meeting requirement R9 and R10.
-  Also need to work on continuously updating measTemp in REG20 as a real life HVAC system would.
+  Also need to work on continuously updating measTemp in REG21 as a real life HVAC system would.
   Also added 'MyConfig.inc' to Projects main branch
