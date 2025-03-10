@@ -24,6 +24,7 @@
 ;  	V1.0: 03/08/2025 
 ;  	V1.1: 03/09/2025 - function to handle negative measTemp
 ;	V1.2: 03/10/2025 - added conversion to decimal digits to update continuously measTemp
+;	V1.3: 03/10/2025 - simplify the process of getting absolute value for negative input
 ;---------------------------------------------
 ;
 #include "MyConfig.inc"
@@ -102,7 +103,7 @@ _main_1:	; Convert refTemp to decimal digits (R9)
 _main_2:	; Convert measTemp to decimal digits (R10)
     MOVFF   measTemp, temp_value
     BTFSC   temp_value, 7, 1    ; Check if negative
-    CALL    _get_abs_val	; If negative, convert to absolute value
+    NEGF    temp_value,1	; If negative, convert to absolute value
     CALL    _convert_to_decimal
     MOVFF   temp_value, measTemp_dec1
     MOVFF   div_count, measTemp_dec10
@@ -164,14 +165,5 @@ _div_by_10:		    ; looping subtraction to perform division
     CPFSLT  temp_value, 1   ; Skip next instruction if temp_value < 10
     GOTO    _div_by_10	    ; loop back to subtraction operation
     RETURN		    ; Return to caller, _convert_to decimal
-
-;---------------------------------------------
-; Subroutine used to obtain absolute value of a negative  
-; number by taking 2's complement of the number' BCD
-;---------------------------------------------
-_get_abs_val:
-    COMF    temp_value,1    
-    INCF    temp_value,1    
-    RETURN		    ; Return to caller, _main_2
 
 END
