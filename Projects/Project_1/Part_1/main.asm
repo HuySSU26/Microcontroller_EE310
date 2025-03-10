@@ -23,6 +23,7 @@
 ; Versions:
 ;  	V1.0: 03/08/2025 
 ;  	V1.1: 03/09/2025 - function to handle negative measTemp
+;	V1.2: 03/10/2025 - added conversion to decimal digits to update continuously measTemp
 ;---------------------------------------------
 ;
 #include "MyConfig.inc"
@@ -32,8 +33,8 @@
 ; PROGRAM INPUTS
 ;---------------------------------------------
 ;
-#define  measTempInput	45  ; this is the input value (R5)
-#define  refTempInput	25  ; this is the input value (R4)
+#define  measTempInput	0XFD ; this is the input value (R5)
+#define  refTempInput	15  ; this is the input value (R4)
 ;
 ;---------------------------------------------
 ; Output Register definitions (R6)
@@ -63,6 +64,12 @@ refTemp_dec100	EQU 	0x62
 measTemp_dec1	EQU 	0x70
 measTemp_dec10	EQU 	0x71
 measTemp_dec100 EQU 	0x72
+ 
+;---------------------------------------------
+; Temporary registers used for HEX to decimal conversion operations
+;---------------------------------------------
+temp_value	EQU     0x30	; divided number/remainder
+div_count	EQU     0x31	; division counter
 ;
 ;---------------------------------------------
 ; Main Program
@@ -70,7 +77,7 @@ measTemp_dec100 EQU 	0x72
 ; The next 4 steps of the initialization process are copied
 ; from LAB5's 'AssemblyDelay.asm'. 
  
-    PSECT absdata,abs,ovrld		; Do not change
+    PSECT absdata,abs,ovrld	; Do not change
     ORG          0              ; Reset vector
     GOTO        _start
 
@@ -85,22 +92,38 @@ _start:
     MOVLW	measTempInput
     MOVWF	measTemp,1
 
-_isNegative:	; Check if measTemp is negative (bit 7 = 1)
-    BTFSC   measTemp,7,1        ; Skip next instruction if bit 7 is clear (measTemp > 0)
-    GOTO    HEAT_ON             ;  measTemp < 0, run HEAT_ON
+_main_1:	; Convert refTemp to decimal digits (R9)
+    MOVFF   refTemp, temp_value
+    CALL    _convert_to_decimal
+    MOVFF   temp_value, refTemp_dec1
+    MOVFF   div_count, refTemp_dec10
+    CLRF    refTemp_dec100,1
 
-_main:   			; Compare measTemp to refTemp
+_main_2:	; Convert measTemp to decimal digits (R10)
+    MOVFF   measTemp, temp_value
+    BTFSC   temp_value, 7, 1    ; Check if negative
+    CALL    _get_abs_val	; If negative, convert to absolute value
+    CALL    _convert_to_decimal
+    MOVFF   temp_value, measTemp_dec1
+    MOVFF   div_count, measTemp_dec10
+    CLRF    measTemp_dec100,1
+
+_isNegative:			; Check if measTemp is negative (bit 7 = 1)
+    BTFSC   measTemp,7,1        ; Skip next instruction if bit 7 is clear (measTemp > 0)
+    GOTO    HEAT_ON             ; measTemp < 0, run HEAT_ON
+
+_main_3:   			; Compare measTemp to refTemp
     MOVFF	measTemp, WREG
     CPFSEQ	refTemp,1 	; if measTemp = refTemp skip next instruction 
-    GOTO	COMPARE_TEMPS	; measTemp ≠ refTemp, need to determine heating or cooling
+    GOTO	_compare	; measTemp ≠ refTemp, need to determine heating or cooling
     
     ; do nothing when measTemp = refTemp (R3)
-    CLRF	contReg,1       ; Set contReg to 0
-    BCF		LED1,1		; Turn off Heating
-    BCF		LED2,2		; Turn off Cooling
-    GOTO	_isNegative
+    CLRF	contReg,1   ; Set contReg to 0
+    BCF		LED1		; Turn off Heating
+    BCF		LED2		; Turn off Cooling
+    BRA		_main_2		; Return to _main_2 to update displays
 
-COMPARE_TEMPS:
+_compare:
     MOVFF	measTemp, WREG  ; Reload measTemp into WREG
     CPFSGT	refTemp,1 	; if refTemp > measTemp skip next instruction
     GOTO	COOL_ON		; measTemp > refTemp, so go to COOL_ON (R1)
@@ -109,15 +132,46 @@ COMPARE_TEMPS:
 HEAT_ON:			; measTemp < refTemp, start heating process
     MOVLW	0x01
     MOVWF	contReg,1
-    BCF		LED2,2		; Turn off Cooling
-    BSF		LED1,1		; Turn on Heating
-    GOTO	_isNegative	 
+    BCF		LED2		; Turn off Cooling
+    BSF		LED1		; Turn on Heating
+    BRA		_main_2		
 
 COOL_ON:			; measTemp > refTemp, start cooling process
     MOVLW	0x02
     MOVWF	contReg,1
-    BCF		LED1,1		; Turn off Heating
-    BSF		LED2,2		; Turn on Cooling
-    GOTO	_isNegative
+    BCF		LED1		; Turn off Heating
+    BSF		LED2		; Turn on Cooling
+    BRA		_main_2		
+
+;---------------------------------------------
+; Subroutine used to convert HEX value to decimal
+; by dividing the number's BCD by 10
+;---------------------------------------------
+_convert_to_decimal:
+    CLRF    div_count, 1	
+    
+    MOVLW   10
+    CPFSLT  temp_value, 1   ; Skip next instruction if temp_value < 10
+    GOTO    _div_by_10
+    RETURN		    ; Return to caller, _main_1 or 2
+    
+_div_by_10:		    ; looping subtraction to perform division
+    MOVLW   10
+    SUBWF   temp_value,1    
+    INCF    div_count,1	    
+    
+    ; Check if we can subtract 10 again
+    CPFSLT  temp_value, 1   ; Skip next instruction if temp_value < 10
+    GOTO    _div_by_10	    ; loop back to subtraction operation
+    RETURN		    ; Return to caller, _convert_to decimal
+
+;---------------------------------------------
+; Subroutine used to obtain absolute value of a negative  
+; number by taking 2's complement of the number' BCD
+;---------------------------------------------
+_get_abs_val:
+    COMF    temp_value,1    
+    INCF    temp_value,1    
+    RETURN		    ; Return to caller, _main_2
 
 END
