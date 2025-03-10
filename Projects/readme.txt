@@ -7,3 +7,7 @@ PROJECT # 1
   Added function to handle negative measTemp value. Need to work on meeting requirement R9 and R10.
   Also need to work on continuously updating measTemp in REG21 as a real life HVAC system would.
   Also added 'MyConfig.inc' to Projects main branch
+03/10/25   Revise main.asm:
+  Add functions to convert HEX values into decimals and load into data registers for display.
+  Need to work on '_get_abs_val' function to correctly handle all negative value.  For example:  the function currently get
+  the absolute value of -10d (0xF6) to 10.  But it will convert -5d (0xFD) to only 3.
