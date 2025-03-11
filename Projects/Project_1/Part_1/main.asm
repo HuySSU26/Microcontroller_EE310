@@ -6,7 +6,8 @@
 ;	The program controls a heating, ventilation, and air conditioning (HVAC) system
 ;   	based on a reference temperature and a measured temperature.
 ;   	The program compares the temperatures and activates heating or cooling accordingly.
-;   	The temperatures are then converted to their decimal digit representations for display.
+;   	The temperatures are also converted to their decimal digits representations as  
+;	required and also for displaying purpose, if required in the future.
 ;
 ; Dependencies: NONE
 ; Compiler: 	MPLABX IDE v6.20
@@ -23,8 +24,8 @@
 ; Versions:
 ;  	V1.0: 03/08/2025 
 ;  	V1.1: 03/09/2025 - function to handle negative measTemp
-;	V1.2: 03/10/2025 - added conversion to decimal digits to update continuously measTemp
-;	V1.3: 03/10/2025 - simplify the process of getting absolute value for negative input
+;	V1.2: 03/10/2025 - added conversion to decimal digits as required in R9 and R10
+;	V1.3: 03/10/2025 - simplify the process of getting absolute value for negative inputs
 ;---------------------------------------------
 ;
 #include "MyConfig.inc"
@@ -38,7 +39,7 @@
 #define  refTempInput	15  ; this is the input value (R4)
 ;
 ;---------------------------------------------
-; Output Register definitions (R6)
+; Output Register definitions (R6) 
 ;---------------------------------------------
 ;
 #define	SWITCH	LATD,0  
