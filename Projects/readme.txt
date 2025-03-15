@@ -11,3 +11,9 @@ PROJECT # 1
   Add functions to convert HEX values into decimals and load into data registers for display.
   Need to work on '_get_abs_val' function to correctly handle all negative value.  For example:  the function currently get
   the absolute value of -10d (0xF6) to 10.  But it will convert -5d (0xFD) to only 3.
+
+PROJECT # 2
+03/14/2025 Started the project
+  Created counter.asm V1.0 for Project_2/Part_1. The code is currently compile and run without errors.  
+  However, Stimulus and Logic Analyzer result does not indicate that the code produces the expected outputs.
+  Need to investigate whether Stimulus is correctly set up or there are bugs in the code.
