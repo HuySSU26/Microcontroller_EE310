@@ -4,8 +4,8 @@
 ; Purpose:
 ;	  The program is a single digit counter which consist of a 7-segment LED and  
 ;	  two momentary contact switches, switch A and switch B, interfaced with a  
-;	  PIC18F47K42 micro controller unit' GPIOs.  When a  switch A is depressed,
-;     the 7-segment will start to increment starting form 0 to 0x0F (15 in decimal).
+;	  PIC18F47K42 micro controller unit' GPIOs.  When a  switch A is depressed, 
+;	  the 7-segment will start to increment starting form 0 to 0x0F (15 in decimal).
 ;	  If switch A is let go, the incrementing sequence stops.  At this point, 
 ;	  if switch B is depressed, the 7-segment decrement from the point where switch A 
 ;	  stops.  Hence, activating switch B enables the system to work in the reverse 
@@ -25,7 +25,8 @@
 ; Author: Huy Nguyen
 ; Versions:
 ;       V1.0: 03/14/2025 - Original
-;
+;	V1.1: 03/16/2025 - Redefine PORTB,0 and 1. Enable weak pull-up register to have inputs' state set as normally HIGH (no contact)
+;			 - Redefine PORTD [7:0] as all outputs 
 ; Useful links: 
 ;    Datasheet: https://ww1.microchip.com/downloads/en/DeviceDoc/PIC18(L)F26-27-45-46-47-55-56-57K42-Data-Sheet-40001919G.pdf 
 ;    PIC18F Instruction Sets: https://onlinelibrary.wiley.com/doi/pdf/10.1002/9781119448457.app4 
@@ -167,27 +168,31 @@ _loop1:
 
  
 _setupPortD:
-    BANKSEL	PORTD 	;
-    CLRF	PORTD 		; Init PORTD
-    BANKSEL	LATD 		; Data Latch
-    CLRF	LATD 	;
-    BANKSEL	ANSELD 	;
-    CLRF	ANSELD 		;digital I/O
-    BANKSEL	TRISD 	;
-    MOVLW	0b10000000 	;Set RD7 as inputs
-    MOVWF	TRISD 		;and set PORTD [6:0] as ouputs
+    BANKSEL		PORTD 	;
+    CLRF		PORTD 		; Init PORTD
+    BANKSEL		LATD 		; Data Latch
+    CLRF		LATD 	;
+    BANKSEL		ANSELD 	;
+    CLRF		ANSELD 		;digital I/O
+    BANKSEL		TRISD 	;
+    MOVLW		0b10000000 	;Set RD7 as input
+    MOVWF		TRISD 		;and set PORTD [6:0] as outputs
     RETURN
  
 _setupPortB:
-    BANKSEL	PORTB ;
-    CLRF	PORTB 		;Init PORTB
-    BANKSEL	LATB 		;Data Latch
-    CLRF	LATB ;
-    BANKSEL	ANSELB ;
-    CLRF	ANSELB 		;digital I/O
-    BANKSEL	TRISB ;
-    MOVLW	0b11111100 	;Set RB[7:2] as inputs
-    MOVWF	TRISB 		;and set RB0 as ouput
-    RETURN    
+    BANKSEL		PORTB ;
+    CLRF		PORTB 		;Init PORTB
+    BANKSEL		LATB 		;Data Latch
+    CLRF		LATB ;
+    BANKSEL		ANSELB ;
+    CLRF		ANSELB 		;digital I/O
+    BANKSEL		TRISB ;
+    MOVLW		0b00000011 	;Set RB0 and RB1 as inputs (corrected)
+    MOVWF		TRISB
+    ; Enable pull-ups for the switch pins
+    BANKSEL     	WPUB        ; Select weak pull-up register for PORTB
+    MOVLW       	0b00000011  ; Enable pull-ups on RB0 and RB1
+    MOVWF       	WPUB
+    RETURN
     
     END
