@@ -17,3 +17,6 @@ PROJECT # 2
   Created counter.asm V1.0 for Project_2/Part_1. The code is currently compile and run without errors.  
   However, Stimulus and Logic Analyzer result does not indicate that the code produces the expected outputs.
   Need to investigate whether Stimulus is correctly set up or there are bugs in the code.
+03/16/2025 Revise counter.asm
+  Redefine PORTB,0 and 1. Enable weak pull-up register to have inputs' state set as normally HIGH (no contact)
+  Also, redefine PORTD [7:0] as all outputs.  In actual circuit, RD7 is connected to the positive poer rail.
