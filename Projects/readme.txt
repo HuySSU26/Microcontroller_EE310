@@ -18,5 +18,8 @@ PROJECT # 2
   However, Stimulus and Logic Analyzer result does not indicate that the code produces the expected outputs.
   Need to investigate whether Stimulus is correctly set up or there are bugs in the code.
 03/16/2025 Revise counter.asm
-  Redefine PORTB,0 and 1. Enable weak pull-up register to have inputs' state set as normally HIGH (no contact)
-  Also, redefine PORTD [7:0] as all outputs.  In actual circuit, RD7 is connected to the positive poer rail.
+  Redefine PORTB,0 and 1. Enable weak pull-up register to have inputs' state set as normally HIGH (no contact.)
+  Also, redefine PORTD [7:0] as all outputs.  In actual circuit, RD7 is connected to the positive power rail.
+  Reworked _display function and physical connections between 7-Segment and PIC18F4K42
+  Use the case-switch approach with the corrected 7-segment's pins mapping.
+
