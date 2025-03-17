@@ -22,4 +22,6 @@ PROJECT # 2
   Also, redefine PORTD [7:0] as all outputs.  In actual circuit, RD7 is connected to the positive power rail.
   Reworked _display function and physical connections between 7-Segment and PIC18F4K42
   Use the case-switch approach with the corrected 7-segment's pins mapping.
+03/17/2025 Revise counter.asm 
+  Changed _display function to use lookup table and pointer approach instead of case-switch approach for more efficient code.
 
