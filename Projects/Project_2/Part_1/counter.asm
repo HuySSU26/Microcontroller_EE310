@@ -4,7 +4,7 @@
 ; Purpose:
 ;   The program is a single digit counter which consist of a 7-segment LED and  
 ;   two momentary contact switches, switch A and switch B, interfaced with a  
-;   PIC18F47K42 micro controller unit' GPIOs. When a switch A is depressed,
+;   PIC18F47K42 micro controller unit' GPIOs. When switch A is depressed,
 ;   the 7-segment will start to increment starting form 0 to 0x0F (15 in decimal). 
 ;   If switch A is let go, the incrementing sequence stops.  At this point, 
 ;   if switch B is depressed, the 7-segment decrement from the point where switch A 
@@ -13,14 +13,14 @@
 ;   7-segment will reset to 0
 ;      
 ; Inputs: 
-;   Switch A - PORTB,0 - Normally set High for no contact (when pressed goes Low) 
-;   Switch B - PORTB,1 - Normally set High for no contact (when pressed goes Low) 
+;   Switch A - PORTA,0 - Normally set High for no contact (when pressed goes Low) 
+;   Switch B - PORTA,1 - Normally set High for no contact (when pressed goes Low) 
 ; Outputs: 
 ;   PORTD [6:0]   
 ; Date: March 14, 2025
 ; File Dependencies / Libraries: 
 ;   The is required to include the MyConfig.inc in the Header Folder. 
-;   It is also required any FunctionCall.inc folder created to simplied counter.asm 
+;   It is also required any FunctionCall.inc folder created to simply counter.asm 
 ; Compiler: MPLABX IDE, v6.20
 ; Author: Huy Nguyen
 ; Versions:
@@ -31,7 +31,9 @@
 ;   V1.2: 03/16/2025 - Reworked _display function and physical connections between 7-Segment and PIC18F4K42
 ;	Use the case-switch approach with the corrected 7-segment's pins mapping.
 ;   V1.3: 03/17/2025 - Changed _display function to use lookup table and pointer approach
-;	instead of case-switch approach for more efficient code.		  	
+;	instead of case-switch approach for more efficient code.
+;   V1.4: 03/18/2025 - Redefine inputs, SW_A and SW_B, to PORTA [1 : 0] in preparation for revising the code
+;	and use PORTB to interface with  a 4x3 keypad.		  	
 ;
 ; Useful links: 
 ;    Datasheet: https://ww1.microchip.com/downloads/en/DeviceDoc/PIC18(L)F26-27-45-46-47-55-56-57K42-Data-Sheet-40001919G.pdf  
@@ -60,8 +62,8 @@ COUNT   equ	0x31		; counter variable address
 ;----------------------------------------------------------------
 ; Definitions
 ;----------------------------------------------------------------
-#define SW_A    PORTB,0  	; Switch A connected to RB0 
-#define SW_B    PORTB,1		; Switch B connected to RB1
+#define SW_A    PORTA,0  	; Switch A connected to RA0 
+#define SW_B    PORTA,1		; Switch B connected to RA1
 ;----------------------------------------------------------------
 ;----------------  Main Program  --------------------------------
 ;----------------------------------------------------------------
@@ -71,7 +73,7 @@ COUNT   equ	0x31		; counter variable address
     GOTO        _initialization
     ORG          0020H             ; Begin assembly at 0020H
 	
-	; Lookup table for 7-segment display patterns (0-F)
+    ; Lookup table for 7-segment display patterns (0-F)
     ; Based on pin mapping: RD0 (g), RD1 (f), RD2 (e), RD3 (d), RD4 (c), RD5 (b), RD6 (a)
     ORG          0x100             ; Place table at address 0x100
 _segment_table:
@@ -94,7 +96,7 @@ _segment_table:
     
 _initialization: 
     RCALL	_setupPortD
-    RCALL 	_setupPortB
+    RCALL 	_setupPortA
     CLRF 	COUNT                  ; Initialize counter to 0 
     RCALL 	_display               ; Display initial value (0) 
     
@@ -111,9 +113,9 @@ _main:
     RCALL 	_loopDelay             ; Delay 
     GOTO 	_main                  ; Return to main loop 
     
-_check_switchB:			       ; check if only switch B is pressed.
+_check_switchB:					   ; check if only switch B is pressed.
     BTFSC 	SW_B                   ; Skip next instruction if SW_B is LOW (pressed) 
-    GOTO 	_main                  ; No switches pressed, do nothing 
+    GOTO 	_main              	   ; No switches pressed, do nothing 
     RCALL 	_decrement             ; Only SW_B pressed, decrement 
     GOTO 	_main                  ; Return to main loop 
     
@@ -167,131 +169,6 @@ _display:
     MOVWF   LATD                    ; Use LATD to display the pattern on PORTD
     RETURN
 	
-; ;----------------------------------------------------------------    
-; ;---  The Display Subroutine using Case-Switch Approach --------- 
-; ;----------------------------------------------------------------
-; _display:
-    ; MOVF    COUNT, W           		; Get current count value
-    
-    ; ; Use case-switch approach with corrected segment mapping 
-    ; MOVLW   0
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_1
-    ; MOVLW   0b01111110         		; '0' pattern - segments: abcdef (RD6-RD1)
-    ; GOTO    _set_display
-    
-; _disp_check_1:
-    ; MOVLW   1
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_2
-    ; MOVLW   0b00110000         		; '1' pattern - segments: bc (RD5-RD4)
-    ; GOTO    _set_display
-    
-; _disp_check_2:
-    ; MOVLW   2
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_3
-    ; MOVLW   0b01101101         		; '2' pattern - segments: abedg (RD6,RD5,RD3,RD2,RD0)
-    ; GOTO    _set_display
-    
-; _disp_check_3:
-    ; MOVLW   3
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_4
-    ; MOVLW   0b01111001         		; '3' pattern - segments: abcdg (RD6,RD5,RD4,RD3,RD0)
-    ; GOTO    _set_display
-    
-; _disp_check_4:
-    ; MOVLW   4
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_5
-    ; MOVLW   0b00110011         		; '4' pattern - segments: bcfg (RD5,RD4,RD1,RD0)
-    ; GOTO    _set_display
-    
-; _disp_check_5:
-    ; MOVLW   5
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_6
-    ; MOVLW   0b01011011         		; '5' pattern - segments: acdfg (RD6,RD4,RD3,RD1,RD0)
-    ; GOTO    _set_display
-    
-; _disp_check_6:
-    ; MOVLW   6
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_7
-    ; MOVLW   0b01011111         		; '6' pattern - segments: acdefg (RD6,RD4,RD3,RD2,RD1,RD0)
-    ; GOTO    _set_display
-    
-; _disp_check_7:
-    ; MOVLW   7
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_8
-    ; MOVLW   0b01110000         		; '7' pattern - segments: abc (RD6,RD5,RD4)
-    ; GOTO    _set_display
-    
-; _disp_check_8:
-    ; MOVLW   8
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_9
-    ; MOVLW   0b01111111         		; '8' pattern - segments: abcdefg (RD6-RD0)
-    ; GOTO    _set_display
-    
-; _disp_check_9:
-    ; MOVLW   9
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_A
-    ; MOVLW   0b01111011         		; '9' pattern - segments: abcdfg (RD6,RD5,RD4,RD3,RD1,RD0)
-    ; GOTO    _set_display
-    
-; _disp_check_A:
-    ; MOVLW   10
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_B
-    ; MOVLW   0b01110111         		; 'A' pattern - segments: abcefg (RD6,RD5,RD4,RD2,RD1,RD0)
-    ; GOTO    _set_display
-    
-; _disp_check_B:
-    ; MOVLW   11
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_C
-    ; MOVLW   0b00011111         		; 'b' pattern - segments: cdefg (RD4,RD3,RD2,RD1,RD0)
-    ; GOTO    _set_display
-    
-; _disp_check_C:
-    ; MOVLW   12
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_D
-    ; MOVLW   0b01001110         		; 'C' pattern - segments: adef (RD6,RD3,RD2,RD1)
-    ; GOTO    _set_display
-    
-; _disp_check_D:
-    ; MOVLW   13
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_E
-    ; MOVLW   0b00111101         		; 'd' pattern - segments: bcdeg (RD5,RD4,RD3,RD2,RD0)
-    ; GOTO    _set_display
-    
-; _disp_check_E:
-    ; MOVLW   14
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_check_F
-    ; MOVLW   0b01001111         		; 'E' pattern - segments: adefg (RD6,RD3,RD2,RD1,RD0)
-    ; GOTO    _set_display
-    
-; _disp_check_F:
-    ; MOVLW   15
-    ; CPFSEQ  COUNT
-    ; GOTO    _disp_default      		; If somehow COUNT is not 0-15, use default
-    ; MOVLW   0b01000111         		; 'F' pattern - segments: aefg (RD6,RD2,RD1,RD0)
-    ; GOTO    _set_display
-    
-; _disp_default:
-    ; MOVLW   0b01111110         		; Default to '0' pattern if COUNT is out of range
-    
-; _set_display:
-    ; MOVWF   PORTD              		; Set the pattern to PORTD
-    ; RETURN
-	
 ;----------------------------------------------------------------    
 ;----------  The Delay Subroutine ------------------------------- 
 ;----------------------------------------------------------------  
@@ -303,15 +180,15 @@ _loopDelay:
     MOVLW       High_loop
     MOVWF       REG30
 _loop1:
-    DECF        REG10,1
+    DECF        REG10,1		    
     BNZ         _loop1
-    MOVLW       Inner_loop 			; Re-initialize the inner loop for when the outer loop decrements. 
+    MOVLW       Inner_loop 	    ; Re-initialize the inner loop for when the outer loop decrements. 
     MOVWF       REG10
-    DECF        REG11,1 			; outer loop 
+    DECF        REG11,1 	    ; outer loop 
     BNZ         _loop1
-    MOVLW       Outer_loop 			; Re-initialize the outer loop for when the high loop decrements. 
-    MOVWF       REG11				; high loop 
-    DECF        REG30,1	    
+    MOVLW       Outer_loop 	    ; Re-initialize the outer loop for when the high loop decrements. 
+    MOVWF       REG11				
+    DECF        REG30,1	    	    ; high loop 
     BNZ         _loop1
     RETURN
 	
@@ -320,29 +197,29 @@ _loop1:
 ;---------------------------------------------------------------- 
 _setupPortD:
     BANKSEL	PORTD 	 
-    CLRF	PORTD 				; Init PORTD 
-    BANKSEL	LATD 				; Data Latch
+    CLRF	PORTD 			; Init PORTD 
+    BANKSEL	LATD 			; Data Latch
     CLRF	LATD 	
     BANKSEL	ANSELD 	
-    CLRF	ANSELD 				; digital I/O 
+    CLRF	ANSELD 			; digital I/O 
     BANKSEL	TRISD 	
-    MOVLW	0b00000000 			; Set all PORTD pins as outputs for 7-segment display 
+    MOVLW	0b00000000 		; Set all PORTD pins as outputs for 7-segment display 
     MOVWF	TRISD 		 
     RETURN
  
-_setupPortB:
-    BANKSEL	PORTB 
-    CLRF	PORTB 				; Init PORTB
-    BANKSEL	LATB 				; Data Latch
-    CLRF	LATB 
-    BANKSEL	ANSELB 
-    CLRF	ANSELB 				; digital I/O
+_setupPortA:
+    BANKSEL	PORTA 
+    CLRF	PORTA 			; Init PORTA
+    BANKSEL	LATA 			; Data Latch
+    CLRF	LATA 
+    BANKSEL	ANSELA 
+    CLRF	ANSELA 			; digital I/O
     BANKSEL	TRISB ;
-    MOVLW	0b00000011 			; Set RB0 and RB1 as inputs (1=input)
-    MOVWF	TRISB 				; RB0 and RB1 are inputs, RB[7:2] are outputs
-    BANKSEL 	WPUB            		; Weak pull-up register for PORTB
-    MOVLW   	0b00000011      		; Enable weak pull-ups for RB0 and RB1
-    MOVWF   	WPUB            		; Keep switches set HIGH when not pressed
+    MOVLW	0b00000011 		; Set RA0 and RA1 as inputs
+    MOVWF	TRISA 			; RA0 and RA1 are inputs, RA[7:2] are outputs
+    BANKSEL WPUA            		; Weak pull-up register for PORTA
+    MOVLW   0b00000011      		; Enable weak pull-ups for RA0 and RA1
+    MOVWF   WPUA            		; Keep switches set HIGH when not pressed
     RETURN    
     
     END
