@@ -26,5 +26,8 @@ PROJECT # 2
   Changed _display function to use lookup table and pointer approach instead of case-switch approach for more efficient code.
 03/18/2025 Revise counter.asm
   Redefine inputs, SW_A and SW_B, to PORTA [1 : 0] in preparation for revising the code
-  and use PORTB to interface with  a 4x3 keypad.	
+  and use PORTB to interface with  a 4x3 keypad.
+03/18/2025 Revise counter.asm
+  Rework code to use a 4x3 keypad instead of the two momentary switches.
+  
 
