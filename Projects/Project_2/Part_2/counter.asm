@@ -4,38 +4,38 @@
 ; Purpose:
 ;   The program is a single digit counter which consists of a 7-segment LED and  
 ;   a 4x3 keypad interfaced with a PIC18F47K42 micro controller unit's GPIOs.
-;   - '1' key when held down auto-increments the counter
-;   - '2' key when held down auto-decrements the counter
-;   - '3' key resets the counter to 0
+;   - '*' key when held down auto-increments the counter
+;   - '#' key when held down auto-decrements the counter
+;   - '0' key resets the counter to 0
 ;      
 ; Inputs: 
 ;   Keypad connected to PORTB
 ;   - Rows (R1-R4): RB3, RB4, RB6, RB7 (input pins with 11KΩ pull-down resistors)
 ;   - Columns (C1-C3): RB0, RB1, RB2   (output pins)
 ; Outputs: 
-;   PORTD [6:0] - 7-segment display   
+;   PORTD [6:0] - 7-segment display (common cathode)   
 ; Date: March 20, 2025
 ; File Dependencies / Libraries: 
-;   The is required to include the MyConfig.inc in the Header Folder. 
-;   It is also required any FunctionCall.inc folder created to simply counter.asm 
+;   The program is required to include the MyConfig.inc in the Header Folder. 
+;   It is also required any FunctionCall.inc folder created to simply (shorten) counter.asm 
 ; Compiler: MPLABX IDE, v6.20
 ; Author: Huy Nguyen 
-;; Versions:
+; Versions:
 ;   V1.0: 03/14/2025 - Original
 ;   V1.1: 03/16/2025 - Reworked switches operation:
-;		  Redefine PORTB,0 and 1. Enable weak pull-up register to have inputs' state set as normally HIGH (no contact)
-;		  Redefine PORTD [7:0] as all outputs   	
-;	V1.2: 03/16/2025 - Reworked _display function and physical connections between 7-Segment and PIC18F4K42
-;		  Use the case-switch approach with the corrected 7-segment's pins mapping.
+;	Redefine PORTB,0 and 1. Enable weak pull-up register to have inputs' state set as normally HIGH (no contact)
+;	Redefine PORTD [7:0] as all outputs   	
+;   V1.2: 03/16/2025 - Reworked _display function and physical connections between 7-Segment and PIC18F4K42
+;	Use the case-switch approach with the corrected 7-segment's pins mapping.
 ;   V1.3: 03/17/2025 - Changed _display function to use lookup table and pointer approach
-;		  instead of case-switch approach for more efficient code.
+;	instead of case-switch approach for more efficient code.
 ;   V1.4: 03/18/2025 - Redefine inputs, SW_A and SW_B, to PORTA [1 : 0] in preparation for revising the code
-;		  and use PORTB to interface with  a 4x3 keypad.
-;	V2.0: 03/18/2025 - Add keypad definitions and constants and replace switch operations with keypad
-;	V2.1: 03/19/2025 - Use existing time dealy loop for key debouncing and signal statiblization
-;	V2.3: 03/20/2025 - Create shorter time delay loop for waiting for signal stabilization
-;	V2.4: 03/20/2025 - Rework keypad scanning logic operations according to actual PORTB's hardware configuration
-
+;	and use PORTB to interface with  a 4x3 keypad.
+;   V2.0: 03/18/2025 - Add keypad definitions and constants and replace switch operations with keypad
+;   V2.1: 03/19/2025 - Use existing time dealy loop for key debouncing and signal statiblization
+;   V2.3: 03/20/2025 - Create shorter time delay loop for waiting for signal stabilization
+;   V2.4: 03/20/2025 - Rework keypad scanning logic operations according to actual PORTB's hardware configuration
+;   V2.5: 03/21/2025 - Expand keypad scanning operation to include all keys
 
 ;---------------------
 ; Initialization
@@ -77,15 +77,15 @@ LASTKEY equ     0x34    ; last key pressed for debouncing
 
 ; Key values
 KEY_NONE    equ     0xFF    ; No key pressed
-KEY_ONE     equ     0x01    ; '1' key - increment
-KEY_TWO     equ     0x02    ; '2' key - decrement
-KEY_THREE   equ     0x03    ; '3' key - reset
+KEY_STAR    equ	    0x2A    ; '*' key - increment
+KEY_HASH    equ     0x23    ; '#' key - decrement
+KEY_ZERO    equ     0x00    ; '0' key - reset
 
 ;----------------------------------------------------------------
 ;----------------  Main Program  --------------------------------
 ;----------------------------------------------------------------
     PSECT absdata,abs,ovrld        ; Do not change 
-
+    
     ORG     0                   ; Reset vector
     GOTO    _initialization
     ORG     0020H               ; Begin assembly at 0020H
@@ -154,16 +154,16 @@ _process_key:
     MOVF    KEY, W
     CPFSEQ  LASTKEY          ; Skip if KEY = LASTKEY (same key still pressed)
     GOTO    _new_key_press   ; Process as new key press
-    
-    ; Same key still pressed - handle auto-repeat for 1 and 2
+
+    ; Same key still pressed - handle auto-repeat for * and #
     MOVF    KEY, W
-    XORLW   KEY_ONE
-    BZ      _increment       ; If '1' still pressed, increment
-    
+    XORLW   KEY_STAR
+    BZ      _increment       ; If '*' still pressed, increment
+
     MOVF    KEY, W
-    XORLW   KEY_TWO
-    BZ      _decrement       ; If '2' still pressed, decrement
-    
+    XORLW   KEY_HASH
+    BZ      _decrement       ; If '#' still pressed, decrement
+
     ; For other keys, no auto-repeat
     GOTO    _main
     
@@ -171,20 +171,32 @@ _new_key_press:
     ; Save the current key as LASTKEY
     MOVF    KEY, W
     MOVWF   LASTKEY
-    
-    ; Process based on which key was pressed
-    XORLW   KEY_ONE
-    BZ      _increment       ; If '1' pressed, increment
+
+    ; Check for special keys first
+    MOVF    KEY, W
+    XORLW   KEY_STAR        ; Check if '*' key (0x2A)
+    BZ      _increment
     
     MOVF    KEY, W
-    XORLW   KEY_TWO
-    BZ      _decrement       ; If '2' pressed, decrement
+    XORLW   KEY_HASH        ; Check if '#' key (0x23)
+    BZ      _decrement
     
     MOVF    KEY, W
-    XORLW   KEY_THREE
-    BZ      _reset           ; If '3' pressed, reset
+    XORLW   KEY_ZERO        ; Check if '0' key (0x00)
+    BZ      _reset
     
-    ; If any other key, ignore and continue scanning
+    ; Direct check for digits 1-9
+    MOVF    KEY, W
+    SUBLW   0x09            ; Compare W with 9
+    BN      _main           ; If KEY > 9, not a valid digit
+    
+    MOVF    KEY, W
+    BZ      _main           ; If KEY = 0, already handled as KEY_ZERO
+    
+    ; KEY [1-9]
+    MOVWF   COUNT           ; Set COUNT to the key value (1-9)
+    RCALL   _display        ; Display the digit
+    RCALL   _loopDelay	    ; Use _loopdelay for debouncing
     GOTO    _main
     
 _reset:
@@ -204,30 +216,30 @@ _increment:
 
 _decrement:
     MOVF    COUNT, W        ; Move COUNT to WREG
-    BZ      _set_to_F       ; If COUNT is 0, set to F (for 0-F counter)
+    BZ      _lower_bound    ; If COUNT is 0, set lower boundery
     DECF    COUNT, F        ; Otherwise decrement count
     RCALL   _display        ; Display updated count
-    RCALL   _loopDelay       ; Delay for auto-repeat rate
+    RCALL   _loopDelay      ; Delay for auto-repeat rate
     GOTO    _main
 
-_set_to_F:
+_lower_bound:
     MOVLW 	0x0F            ; Load 15 (F) into WREG 
-    MOVWF 	COUNT           ; Set COUNT to F 
+    MOVWF 	COUNT           ; Set COUNT to F and make 0 the lower boundery 
     RCALL 	_display        ; Display updated count 
-    RCALL 	_loopDelay       ; Delay for auto-repeat rate
+    RCALL 	_loopDelay      ; Delay for auto-repeat rate
     GOTO 	_main
 
 
 _resetColumns:
     BANKSEL LATB
-    ; Set all columns HIGH (inactive)
+    ; Set all columns HIGH (active)
     BSF     LATB, COL1
     BSF     LATB, COL2
     BSF     LATB, COL3
     RETURN
 
 ;----------------------------------------------------------------    
-;---------------- Keypad Scanning Subroutine -------------------- 
+;---------------- Keypad Scanning Subroutines -------------------- 
 ;----------------------------------------------------------------
 _scanKeypad:
     ; Initialize KEY to "no key pressed"
@@ -235,7 +247,7 @@ _scanKeypad:
     MOVWF   KEY
 
     ;-------------------------------------------
-    ; Scan Column 1 (Key 1)
+    ; Scan Column 1 
     ;-------------------------------------------
     BANKSEL LATB
     ; Set Column 1 active (HIGH), others inactive (LOW)
@@ -243,41 +255,88 @@ _scanKeypad:
     BCF     LATB, COL2      ; Set C2 LOW (inactive)
     BCF     LATB, COL3      ; Set C3 LOW (inactive)
     RCALL   _shortDelay     ; Small delay for signal stabilization
-    
+	
     BANKSEL PORTB
-    ; Check Row 1 (Key 1) - With pull-down resistors, pressed key = HIGH
-    BTFSS   PORTB, ROW1     ; Skip if row pin is HIGH (button pressed)
-    GOTO    _check_col2     ; Not pressed, check next column
-    
-    ; Key 1 is pressed
-    MOVLW   KEY_ONE
+_col1_row1:
+    ; Check Row 1
+    BTFSS   PORTB, ROW1
+    GOTO    _col1_row2
+    MOVLW   0x01            ; Key '1' pressed
     MOVWF   KEY
-    RETURN                  ; Return immediately when key found
+    RETURN
 
-_check_col2:
+_col1_row2:
+    ; Check Row 2
+    BTFSS   PORTB, ROW2
+    GOTO    _col1_row3
+    MOVLW   0x04            ; Key '4' pressed
+    MOVWF   KEY
+    RETURN
+
+_col1_row3:
+    ; Check Row 3
+    BTFSS   PORTB, ROW3
+    GOTO    _col1_row4
+    MOVLW   0x07            ; Key '7' pressed
+    MOVWF   KEY
+    RETURN
+
+_col1_row4:
+    ; Check Row 4
+    BTFSS   PORTB, ROW4
+    GOTO    _scan_col2
+    MOVLW   0x2A            ; Key '*' pressed
+    MOVWF   KEY
+    RETURN
+	
+    
+_scan_col2:
     ;-------------------------------------------
-    ; Scan Column 2 (Key 2)
+    ; Scan Column 2
     ;-------------------------------------------
     BANKSEL LATB
-    ; Set Column 2 active (LOW), others inactive (HIGH)
+    ; Set Column 2 active (HIGH), others inactive (LOW)
     BCF     LATB, COL1      ; Set C1 LOW (inactive)
     BSF     LATB, COL2      ; Set C2 HIGH (active)
     BCF     LATB, COL3      ; Set C3 LOW (inactive)
     RCALL   _shortDelay     ; Small delay for signal stabilization
     
     BANKSEL PORTB
-    ; Check Row 1 (Key 2) - With pull-down resistors, pressed key = HIGH
-    BTFSS   PORTB, ROW1     ; Skip if row pin is HIGH (button pressed)
-    GOTO    _check_col3     ; Not pressed, check next column
-    
-    ; Key 2 is pressed
-    MOVLW   KEY_TWO
+_col2_row1:
+    ; Check Row 1
+    BTFSS   PORTB, ROW1
+    GOTO    _col2_row2
+    MOVLW   0x02            ; Key '2' pressed
     MOVWF   KEY
-    RETURN                  ; Return immediately when key found
+    RETURN
 
-_check_col3:
+_col2_row2:
+    ; Check Row 2
+    BTFSS   PORTB, ROW2
+    GOTO    _col2_row3
+    MOVLW   0x05            ; Key '5' pressed
+    MOVWF   KEY
+    RETURN
+
+_col2_row3:
+    ; Check Row 3
+    BTFSS   PORTB, ROW3
+    GOTO    _col2_row4
+    MOVLW   0x08            ; Key '8' pressed
+    MOVWF   KEY
+    RETURN
+
+_col2_row4:
+    ; Check Row 4
+    BTFSS   PORTB, ROW4
+    GOTO    _scan_col3
+    MOVLW   0x00            ; Key '0' pressed
+    MOVWF   KEY
+    RETURN
+
+_scan_col3:
     ;-------------------------------------------
-    ; Scan Column 3 (Key 3)
+    ; Scan Column 3
     ;-------------------------------------------
     BANKSEL LATB
     ; Set Column 3 active (HIGH), others inactive (LOW)
@@ -287,17 +346,40 @@ _check_col3:
     RCALL   _shortDelay     ; Small delay for signal stabilization
     
     BANKSEL PORTB
-    ; Check Row 1 (Key 3) - With pull-down resistors, pressed key = HIGH
-    BTFSS   PORTB, ROW1     ; Skip if row pin is HIGH (button pressed)
-    GOTO    _no_key         ; No key pressed
-    
-    ; Key 3 is pressed
-    MOVLW   KEY_THREE
+_col3_row1:
+    ; Check Row 1
+    BTFSS   PORTB, ROW1
+    GOTO    _col3_row2
+    MOVLW   0x03            ; Key '3' pressed
     MOVWF   KEY
-    RETURN                  ; Return immediately when key found
+    RETURN
+
+_col3_row2:
+    ; Check Row 2
+    BTFSS   PORTB, ROW2
+    GOTO    _col3_row3
+    MOVLW   0x06            ; Key '6' pressed
+    MOVWF   KEY
+    RETURN
+
+_col3_row3:
+    ; Check Row 3
+    BTFSS   PORTB, ROW3
+    GOTO    _col3_row4
+    MOVLW   0x09            ; Key '9' pressed
+    MOVWF   KEY
+    RETURN
+
+_col3_row4:
+    ; Check Row 4
+    BTFSS   PORTB, ROW4
+    GOTO    _no_key
+    MOVLW   0x23            ; Key '#' pressed
+    MOVWF   KEY
+    RETURN
 
 _no_key:
-    ; No key was pressed - reset all columns to inactive
+    ; No key was pressed - reset all columns to active
     RCALL   _resetColumns
     RETURN
 
@@ -347,7 +429,7 @@ _loop1:
     BNZ         _loop1
     MOVLW       Outer_loop 		; Re-initialize the outer loop for when the high loop decrements. 
     MOVWF       REG11				
-    DECF        REG30, F	    	; high loop 
+    DECF        REG30, F	    ; high loop 
     BNZ         _loop1
     RETURN
 
