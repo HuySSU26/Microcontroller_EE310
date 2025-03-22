@@ -27,10 +27,13 @@ PROJECT # 2
 03/18/2025 Revise counter.asm
   Redefine inputs, SW_A and SW_B, to PORTA [1 : 0] in preparation for revising the code
   and use PORTB to interface with  a 4x3 keypad.
-03/20/2025 Revise counter.asm
+03/20/2025 Revise counter.asm (V2.0)
   Rework code to use a 4x3 keypad instead of the two momentary switches.
 03/21/2025 Revise counter.asm
   Expand keypad scanning operation to include all keys. USe key '*' for incrementing the counter, key '#' for decrementing the counter,
   and key '0' for reseting the counter. Keyes 1-9 have their digit displayed on the 7-segment, and the counting operations starts or reset from that point.
+03/21/2025 Revise counter.asm (V3.0)
+  Combine the keypad and switches operations into a single program.  Currently have some issue with the switches as followed: On every other cycle, 
+  increment skips from E to 0 and decrement skip from 1 to F when using the switches. Possibly caused by insufficient debounce.
   
 
