@@ -1,11 +1,10 @@
 ;---------------------
-; Title: Combined Single Digit Counter with Keypad and Switch Input
+;  Title: Combined Single Digit Counter with Keypad and Switch Input - FIXED
 ;---------------------
 ; Purpose:
 ;   The program is a single digit counter which consists of a 7-segment LED and
 ;   a 4x3 keypad and two momentary contact switches, switch A and switch B,
 ;   interfaced with a PIC18F47K42 microcontroller unit's GPIOs.
-;
 ;   - '*' key when held down auto-increments the counter
 ;   - '#' key when held down auto-decrements the counter
 ;   - '0' key resets the counter to 0
@@ -23,8 +22,9 @@
 ;   Switch B - PORTA,1 - Normally set High for no contact (when pressed goes Low)
 ;
 ; Outputs:
-;   PORTD [6:0] - 7-segment display (common cathode)
-; Date: March 21, 2025
+;   PORTD [6:0] - 7-segment display (common cathode)  
+; Date: March 22, 2025
+;
 ; File Dependencies / Libraries: 
 ;   The program is required to include the MyConfig.inc in the Header Folder. 
 ;   It is also required any FunctionCall.inc folder created to simply (shorten) counter.asm 
@@ -47,6 +47,9 @@
 ;   V2.4: 03/20/2025 - Rework keypad scanning logic operations according to actual PORTB's hardware configuration
 ;   V2.5: 03/21/2025 - Expand keypad scanning operation to include all keys
 ;   V3.0: 03/21/2025 - Combine switch and keypad operation to create one single program
+;   V3.1: 03/22/2025 - Rework keypad and switches detection logic for better debouncing handling
+;   V3.2: 03/24/2025 - Rework keypad and switches detection logic by adding state detection logic, 
+;	and rework counting operation/flow for better debouncing handling
 
 ;---------------------
 ; Initialization
@@ -69,6 +72,7 @@ COUNT   equ     0x31    ; counter variable address
 KEY     equ     0x32    ; current key pressed 
 TEMP    equ     0x33    ; temporary storage 
 LASTKEY equ     0x34    ; last key pressed for debouncing
+KEY_FLAG equ    0x35    ; flag to indicate key is being processed
 ;----------------------------------------------------------------
 ; Keypad Definitions and Constants
 ;----------------------------------------------------------------
@@ -128,140 +132,228 @@ _initialization:
     MOVLW   KEY_NONE
     MOVWF   KEY              ; Initialize KEY to "no key pressed"
     MOVWF   LASTKEY          ; Initialize LASTKEY to "no key pressed"
+    CLRF    KEY_FLAG         ; Initialize KEY_FLAG to 0 (no key being processed)
     
     ; Clear counter to 0 and display it
     CLRF    COUNT            ; Initialize counter to 0
-    RCALL   _loopDelay   ; Short delay for system stabilization
     RCALL   _display         ; Display initial value (0)
     
     ; Wait for system to stabilize
     RCALL   _loopDelay
     
-_main:
-    ; Reset column pins for next scan
-    RCALL   _resetColumns
+_main: 
+    RCALL   _resetColumns	; Reset column pins for next scan
+    RCALL   _scanKeypad		; Scan keypad and store result in KEY
+    CLRF    TEMP			; Clear temp register for switch state
     
-    ; Scan keypad and store result in KEY
-    RCALL   _scanKeypad
+    ; Check Switch A - store state in bit 0 of TEMP
+    BANKSEL PORTA
+    BTFSS   SW_A
+    BSF     TEMP, 0
     
-    ; Check if both switches are pressed first
-    BTFSC   SW_A                   ; Skip next if SW_A is LOW (pressed)
-    GOTO    _check_switchB         ; SW_A not pressed, check SW_B
-    BTFSC   SW_B                   ; Skip next if SW_B is LOW (pressed)
-    GOTO    _check_switchA_only   ; SW_B not pressed, only SW_A pressed
-    ; If we reach here, both switches are pressed
-    CLRF    COUNT                  ; Reset counter to 0
-    RCALL   _display               ; Display 0
-    RCALL   _loopDelay             ; Delay
-    GOTO    _main                  ; Return to main loop
+    ; Check Switch B - store state in bit 1 of TEMP
+    BTFSS   SW_B
+    BSF     TEMP, 1
     
-_check_switchA_only:
-    ; Only Switch A pressed - Increment
-    RCALL   _shortDelay         ; Add debounce delay
-    BTFSC   SW_A                ; Recheck switch after delay
-    GOTO    _main               ; Switch released, go back
-    RCALL   _increment
+    ; Check combined switch states
+    MOVF    TEMP, W
+    BZ      _check_keypad      ; No switches pressed, proceed to keypad scanning logic
+    
+    ; Check if both switches are pressed (TEMP == 0x03)
+    XORLW   0x03
+    BZ      _reset     ; Both switches pressed, proceed to reset counter to 0
+    
+    ; Check if only Switch A is pressed (TEMP == 0x01)
+    MOVF    TEMP, W
+    XORLW   0x01
+    BZ      _SWA_only     ; Only Switch A pressed
+    
+    ; Check if only Switch B is pressed (TEMP == 0x02)
+    MOVF    TEMP, W
+    XORLW   0x02              
+    BZ      _SWB_only     ; Only Switch B pressed
+    
+_SWA_only:
+    RCALL   _increment        
+    RCALL   _loopDelay
     GOTO    _main
     
-_check_switchB:
-    ; Check if only switch B is pressed
-    BTFSC   SW_B                ; Skip next instruction if SW_B is LOW (pressed)
-    GOTO    _check_keypad       ; No switches pressed, check keypad
-    RCALL   _shortDelay         ; Add debounce delay
-    BTFSC   SW_B                ; Recheck switch after delay
-    GOTO    _main               ; Switch released, go back
-    RCALL   _decrement          ; Only SW_B pressed, decrement
-    GOTO    _main               ; Return to main loop
+_SWB_only:
+    RCALL   _decrement         
+    RCALL   _loopDelay
+    GOTO    _main
+    
+_validateCount:	       ; Subroutine to check if COUNT is a positive value
+    MOVF    COUNT, W
+    SUBLW   0x0F       ; Compare with 15 (max value)
+    BN      _reset_count_to_max
+      
+    TSTFSZ  COUNT      ; If COUNT is 0, it's valid, skip next instruction
+    RETURN
+    
+    BTFSC   STATUS, 4    ; Check for negative when COUNT is not 0
+    GOTO    _reset_count_to_min
+      
+_reset_count_to_max:
+    MOVLW   0x0F       ; Load max value
+    MOVWF   COUNT
+    RETURN
+    
+_reset_count_to_min:
+    CLRF    COUNT      ; Reset to 0
+    RETURN
     
 _check_keypad:
-    ; Check for keypad input
+    ; First check if a key is pressed
     MOVF    KEY, W
     XORLW   KEY_NONE
-    BZ      _main                 ; If no key, go back to main loop
-    GOTO    _process_key
-      
-_process_key:
-    ; Check if this is a new key press by comparing to LASTKEY
-    MOVF    KEY, W
-    CPFSEQ  LASTKEY          ; Skip if KEY = LASTKEY (same key still pressed)
-    GOTO    _new_key_press   ; Process as new key press
+    BZ      _no_key_pressed    ; No key pressed
     
-    ; Same key still pressed - handle auto-repeat for * and #
-    MOVF    KEY, W
-    XORLW   KEY_STAR
-    BZ      _increment       ; If '*' still pressed, increment
+    ; Check if we're already processing a key
+    MOVF    KEY_FLAG, F
+    BNZ     _continue_key_processing
     
-    MOVF    KEY, W
-    XORLW   KEY_HASH
-    BZ      _decrement       ; If '#' still pressed, decrement
+    ; New key press detected - set the flag and apply debounce delay
+    MOVLW   1
+    MOVWF   KEY_FLAG           ; Set flag to indicate key processing
     
-    ; For other keys, no auto-repeat
+    ; Check if key is different from last key
+    MOVF    KEY, W
+    CPFSEQ  LASTKEY            ; Skip if KEY = LASTKEY
+    GOTO    _new_key_process   ; Handle new key press
+    
+    ; Same key being held down
+    GOTO    _key_held_down
+    
+_continue_key_processing:	; Key is already being processed
+    ; Check if key is still pressed
+    MOVF    KEY, W
+    XORLW   KEY_NONE
+    BZ      _key_released
+    
+    ; Key still held down - handle auto-repeat for special keys
+    MOVF    KEY, W
+    CPFSEQ  LASTKEY            ; Skip if KEY = LASTKEY
+    GOTO    _key_changed       ; Key changed while flag set
+    
+    ; Same key still held down
+    GOTO    _key_held_down
+    
+_no_key_pressed:
+    ; Reset key flag if no key is pressed
+    CLRF    KEY_FLAG
+    MOVLW   KEY_NONE
+    MOVWF   LASTKEY
     GOTO    _main
     
-_new_key_press:
-    ; Save the current key as LASTKEY
+_key_released:		     ; Key was released - reset flag
+    CLRF    KEY_FLAG
+    MOVLW   KEY_NONE
+    MOVWF   LASTKEY
+    GOTO    _main
+    
+_key_changed:		    ; Key changed while being processed - update LASTKEY  
+    MOVF    KEY, W
+    MOVWF   LASTKEY
+    GOTO    _main
+    
+_new_key_process:
+    ; Update LASTKEY for a new key press
     MOVF    KEY, W
     MOVWF   LASTKEY
     
-    ; Check for special keys first
-    MOVF    KEY, W
-    XORLW   KEY_STAR        ; Check if '*' key (0x2A)
-    BZ      _increment
+    ; Process based on key value
+    XORLW   KEY_STAR
+    BZ      _key_star_first_press
     
     MOVF    KEY, W
-    XORLW   KEY_HASH        ; Check if '#' key (0x23)
-    BZ      _decrement
+    XORLW   KEY_HASH
+    BZ      _key_hash_first_press
     
     MOVF    KEY, W
-    XORLW   KEY_ZERO        ; Check if '0' key (0x00)
-    BZ      _reset
+    XORLW   KEY_ZERO
+    BZ      _key_zero_pressed
     
-    ; Direct check for digits 1-9
+    ; Check if key is a digit (1-9)
     MOVF    KEY, W
-    SUBLW   0x09            ; Compare W with 9
-    BN      _main           ; If KEY > 9, not a valid digit
+    SUBLW   0x09
+    BN      _main           ; Not a valid digit
     
     MOVF    KEY, W
-    BZ      _main           ; If KEY = 0, already handled as KEY_ZERO
+    BZ      _main           ; Key 0 already handled
     
-    ; KEY [1 : 9]
-    MOVWF   COUNT           ; Set COUNT to the key value (1-9)
-    RCALL   _display        ; Display the digit
-    RCALL   _loopDelay	    ; Use _loopdelay for debouncing
+    ; Key is 1-9, set counter directly
+    MOVWF   COUNT
+    RCALL   _display
+    
+    ; Add debounce delay
+    RCALL   _shortDelay
+    GOTO    _main
+    
+_key_held_down:
+    ; Handle auto-repeat for special keys
+    MOVF    KEY, W
+    XORLW   KEY_STAR
+    BZ      _key_star_held
+    
+    MOVF    KEY, W
+    XORLW   KEY_HASH
+    BZ      _key_hash_held
+    GOTO    _main	; Other keys don't auto-repeat
+    
+_key_star_first_press:	    ; First press of star key - increment once with delay
+    RCALL   _increment
+    RCALL   _loopDelay     ; Longer delay for first press
+    GOTO    _main
+    
+_key_hash_first_press:	    ; First press of hash key - decrement once with delay
+    RCALL   _decrement
+    RCALL   _loopDelay     ; Longer delay for first press
+    GOTO    _main
+    
+_key_star_held:
+    RCALL   _increment
+    RCALL   _loopDelay      ; Regular delay for auto-repeat
+    GOTO    _main
+    
+_key_hash_held:
+    RCALL   _decrement
+    RCALL   _loopDelay      ; Regular delay for auto-repeat
+    GOTO    _main
+    
+_key_zero_pressed:
+    CLRF    COUNT
+    RCALL   _display
+    RCALL   _shortDelay
     GOTO    _main
     
 _reset:
     CLRF    COUNT           ; Reset counter to 0
     RCALL   _display
-    RCALL   _loopDelay  	; Use loop delay for debouncing.
+    RCALL   _loopDelay	    ; Use loop delay for debouncing.
     GOTO    _main
     
 _increment:
     INCF    COUNT, F        ; Increment counter
-    MOVLW   0x10            ; Load decimal 16
-    CPFSLT  COUNT           ; Skip next instruction if COUNT < 16
-    CLRF    COUNT           ; Set upper boundary: Reset to 0 if COUNT ? 16
+    MOVLW   0x10            ; Load 16 (one past our max value)
+    CPFSEQ  COUNT           ; Skip if COUNT = 16 (0x10)
+    GOTO    _increment_done ; Not at upper limit, continue
+    CLRF    COUNT           ; Reset to 0 if COUNT = 16
+_increment_done:
     RCALL   _display        ; Display updated count
-    RCALL   _loopDelay      ; Delay for auto-repeat rate
-    RCALL   _shortDelay         ; Add debounce delay
-    GOTO    _main
-    
+    RETURN                  ; Return to caller, don't jump to _main
+
 _decrement:
     MOVF    COUNT, W        ; Move COUNT to WREG
-    BZ      _lower_bound    ; If COUNT is 0, set lower boundery
+    BZ      _wrap_to_max    ; If COUNT is 0, wrap to max
     DECF    COUNT, F        ; Otherwise decrement count
+    GOTO    _decrement_done
+_wrap_to_max:
+    MOVLW   0x0F            ; Load 15 (F) into WREG 
+    MOVWF   COUNT           ; Set COUNT to F
+_decrement_done:
     RCALL   _display        ; Display updated count
-    RCALL   _loopDelay      ; Delay for auto-repeat rate
-    RCALL   _shortDelay         ; Add debounce delay
-    GOTO    _main
-    
-_lower_bound:
-    MOVLW 	0x0F            ; Load 15 (F) into WREG
-    MOVWF 	COUNT           ; Set COUNT to F and make 0 the lower boundery
-    RCALL 	_display        ; Display updated count
-    RCALL 	_loopDelay      ; Delay for auto-repeat rate
-    GOTO 	_main
-    
+    RETURN                  ; Return to caller, don't jump to _main
 
 _resetColumns:
     BANKSEL LATB
@@ -288,8 +380,8 @@ _scanKeypad:
     BCF     LATB, COL2      ; Set C2 LOW (inactive)
     BCF     LATB, COL3      ; Set C3 LOW (inactive)
     RCALL   _shortDelay     ; Small delay for signal stabilization
-	
-	BANKSEL PORTB
+	 
+    BANKSEL PORTB			; Explicitly selecting bank for PORTB before reading  
 _col1_row1:
     ; Check Row 1
     BTFSS   PORTB, ROW1
@@ -318,7 +410,7 @@ _col1_row4:
     ; Check Row 4
     BTFSS   PORTB, ROW4
     GOTO    _scan_col2
-    MOVLW   0x2A            ; Key '*' pressed
+    MOVLW   KEY_STAR        ; Key '*' pressed
     MOVWF   KEY
     RETURN
 	
@@ -333,8 +425,8 @@ _scan_col2:
     BSF     LATB, COL2      ; Set C2 HIGH (active)
     BCF     LATB, COL3      ; Set C3 LOW (inactive)
     RCALL   _shortDelay     ; Small delay for signal stabilization
-    
-    BANKSEL PORTB
+      
+    BANKSEL PORTB			; Explicitly selecting bank for PORTB before reading   
 _col2_row1:
     ; Check Row 1
     BTFSS   PORTB, ROW1
@@ -363,7 +455,7 @@ _col2_row4:
     ; Check Row 4
     BTFSS   PORTB, ROW4
     GOTO    _scan_col3
-    MOVLW   0x00            ; Key '0' pressed
+    MOVLW   KEY_ZERO        ; Key '0' pressed
     MOVWF   KEY
     RETURN
     
@@ -377,8 +469,8 @@ _scan_col3:
     BCF     LATB, COL2      ; Set C2 LOW (inactive)
     BSF     LATB, COL3      ; Set C3 HIGH (active)
     RCALL   _shortDelay     ; Small delay for signal stabilization
-    
-    BANKSEL PORTB
+        
+    BANKSEL PORTB			; Explicitly selecting bank for PORTB before reading    
 _col3_row1:
     ; Check Row 1
     BTFSS   PORTB, ROW1
@@ -407,12 +499,11 @@ _col3_row4:
     ; Check Row 4
     BTFSS   PORTB, ROW4
     GOTO    _no_key
-    MOVLW   0x23            ; Key '#' pressed
+    MOVLW   KEY_HASH        ; Key '#' pressed
     MOVWF   KEY
     RETURN
     
-_no_key:
-    ; No key was pressed - reset all columns to active
+_no_key:					; No key was pressed - reset all columns to active
     RCALL   _resetColumns
     RETURN
     
@@ -447,12 +538,12 @@ _display:
 ;----------  The Delay Subroutines ------------------------------
 ;----------------------------------------------------------------
 _loopDelay:
-    MOVLW     Inner_loop
-    MOVWF     REG10
-    MOVLW     Outer_loop
-    MOVWF     REG11
-    MOVLW     High_loop
-    MOVWF     REG30
+    MOVLW       Inner_loop
+    MOVWF       REG10
+    MOVLW       Outer_loop
+    MOVWF       REG11
+    MOVLW       High_loop
+    MOVWF       REG30
 _loop1:
     DECF      REG10, F
     BNZ       _loop1
@@ -466,9 +557,9 @@ _loop1:
     BNZ       _loop1
     RETURN
 
-; Shorter delay for debouncing (~50µs)
+; Shorter delay for debouncing (~255µs)
 _shortDelay:
-    MOVLW       50             
+    MOVLW       255             
     MOVWF       TEMP
 _shortLoop:
     DECF        TEMP, F
@@ -479,54 +570,55 @@ _shortLoop:
 ;----------  Initializing the I/O Ports--------------------------
 ;----------------------------------------------------------------
 _setupPortD:
-    BANKSEL		PORTD
-    CLRF		PORTD 			; Init PORTD
-    BANKSEL		LATD 			; Data Latch
-    CLRF		LATD 	        ; Clear LATD to ensure all segments are off initially
-    BANKSEL		ANSELD
-    CLRF		ANSELD 			; digital I/O
-    BANKSEL		TRISD
-    MOVLW		0b00000000 		; Set all PORTD pins as outputs for 7-segment display
-    MOVWF		TRISD
+    BANKSEL	PORTD
+    CLRF	PORTD 			; Init PORTD
+    BANKSEL	LATD 			; Data Latch
+    CLRF	LATD 	        ; Clear LATD to ensure all segments are off initially
+    BANKSEL	ANSELD
+    CLRF	ANSELD 			; digital I/O
+    BANKSEL	TRISD
+    MOVLW	0b00000000 		; Set all PORTD pins as outputs for 7-segment display
+    MOVWF	TRISD
     RETURN
 
 _setupPortB:
-    BANKSEL		PORTB
-    CLRF		PORTB 			; Init PORTB
-    BANKSEL		LATB 			; Data Latch
-    CLRF		LATB
+    BANKSEL	PORTB
+    CLRF	PORTB 			; Init PORTB
+    BANKSEL	LATB 			; Data Latch
+    CLRF	LATB
     
     ; Set initial state of column pins to HIGH (inactive)
-    BSF     	LATB, COL1
-    BSF     	LATB, COL2
-    BSF     	LATB, COL3
+    BSF     LATB, COL1
+    BSF     LATB, COL2
+    BSF     LATB, COL3
     
-    BANKSEL		ANSELB
-    CLRF		ANSELB 			; digital I/O for all pins
+    BANKSEL	ANSELB
+    CLRF	ANSELB 			; digital I/O for all pins
     
     BANKSEL	TRISB
     ; Columns as outputs (RB0-RB2), rows as inputs (RB3-RB4, RB6-RB7)
-    MOVLW		0b11111000 		; RB0-RB2 outputs, RB3-RB7 inputs
-    MOVWF		TRISB
+    MOVLW	0b11111000 		; 1111_1000: RB0-RB2 outputs, RB3-RB7 inputs
+    MOVWF	TRISB
     
     ; Using external pull-down resistors on PORTB,3,4,6,7
-    BANKSEL 	WPUB
-    CLRF    	WPUB            ; Disable all internal pull-ups
+    BANKSEL WPUB
+    CLRF    WPUB            ; Disable all internal pull-ups
+    
     RETURN
     
 _setupPortA:
-    BANKSEL		PORTA
-    CLRF		PORTA 			; Init PORTA
-    BANKSEL		LATA 			; Data Latch
-    CLRF		LATA
-    BANKSEL		ANSELA
-    CLRF		ANSELA 			; digital I/O
-    BANKSEL		TRISB ;
-    MOVLW		0b00000011 		; Set RA0 and RA1 as inputs
-    MOVWF		TRISA 			; RA0 and RA1 are inputs, RA[7:2] are outputs
-    BANKSEL 	WPUA            ; Weak pull-up register for PORTA
-    MOVLW   	0b00000011      ; Enable weak pull-ups for RA0 and RA1
-    MOVWF   	WPUA            ; Keep switches set HIGH when not pressed
+    BANKSEL	PORTA
+    CLRF	PORTA 			; Init PORTA
+    BANKSEL	LATA 			; Data Latch
+    CLRF	LATA
+    BANKSEL	ANSELA
+    CLRF	ANSELA 			; digital I/O
+    BANKSEL	TRISA                   
+    MOVLW	0b00000011 		; Set RA0 and RA1 as inputs
+    MOVWF	TRISA 			; RA0 and RA1 are inputs, RA[7:2] are outputs
+    BANKSEL WPUA            		; Weak pull-up register for PORTA
+    MOVLW   0b00000011      		; Enable weak pull-ups for RA0 and RA1
+    MOVWF   WPUA            		; Keep switches set HIGH when not pressed
     RETURN
     
     END
