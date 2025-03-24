@@ -33,7 +33,8 @@ PROJECT # 2
   Expand keypad scanning operation to include all keys. USe key '*' for incrementing the counter, key '#' for decrementing the counter,
   and key '0' for reseting the counter. Keyes 1-9 have their digit displayed on the 7-segment, and the counting operations starts or reset from that point.
 03/21/2025 Revise counter.asm (V3.0)
-  Combine the keypad and switches operations into a single program.  Currently have some issue with the switches as followed: On every other cycle, 
-  increment skips from E to 0 and decrement skip from 1 to F when using the switches. Possibly caused by insufficient debounce.
+  Combine the keypad and switches operations into a single program.  Currently have some issue with the switches as followed: On every other       cycle, increment skips from E to 0 and decrement skip from 1 to F when using the switches. Possibly caused by insufficient debounce.
+03/24/2025  Revise counter.asm
+  V3.2: 03/24/2025 - Rework keypad and switches detection logic by adding state detection logic, and counting operation/flow for better            debouncing handling
   
 
