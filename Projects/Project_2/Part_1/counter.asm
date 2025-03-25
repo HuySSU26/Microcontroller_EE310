@@ -214,7 +214,7 @@ _setupPortA:
     CLRF	LATA 
     BANKSEL	ANSELA 
     CLRF	ANSELA 			; digital I/O
-    BANKSEL	TRISB ;
+    BANKSEL	TRISA ;
     MOVLW	0b00000011 		; Set RA0 and RA1 as inputs
     MOVWF	TRISA 			; RA0 and RA1 are inputs, RA[7:2] are outputs
     BANKSEL WPUA            		; Weak pull-up register for PORTA
