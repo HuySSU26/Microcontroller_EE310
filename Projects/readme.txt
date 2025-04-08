@@ -40,5 +40,6 @@ PROJECT # 2
 PROJECT # 3
 04/04/2025 - Add fully functional code for a simple calculator
            - Add MyConfig.h file to Project main
+04/07/2025 - Add reworked code for simple calculator. Result displayed on dual seven segment
   
 
