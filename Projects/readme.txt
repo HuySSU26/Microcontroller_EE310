@@ -41,5 +41,10 @@ PROJECT # 3
 04/04/2025 - Add fully functional code for a simple calculator
            - Add MyConfig.h file to Project main
 04/07/2025 - Add reworked code for simple calculator. Result displayed on dual seven segment
+
+PROJECT # 4
+04/17/2025 - Add fully functional code ( main.c and 3 header files) for a security system project
+           - The files are results of at least 20 revisions.  There are some redundancies between main.c and functions.h as results of trouble shooting.
+           - Most bug and problems were hardware related.
   
 
