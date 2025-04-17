@@ -5,7 +5,16 @@
  * Created on April 17, 2025
  * 
  * Purpose: This program is a simulation of a security system used on a lock box.   The locking
- *	  		code is preset.  The unlocking code is enter by using two touchless switches. 
+ *	    code is preset.  The unlocking code is enter by using two touchless switches.
+ * Inputs:  PORTC [3:2] to Photo Sensor Assemblies PR1 and PR2
+ *	    PORTB [0]   to Interrupt Service Routine
+ *	    PORTB [7:4] to keypad's row  1- 4 operation
+ * Outputs: PORTA [1:0] Control 7-Segment Multiplexing
+ *	    PORTA [2]   Control Relay assembly that drives DC motor
+ *	    PORTA [5]   Control Piezo buzzer
+ *	    PORTB [3:1] Control keypad's column 1- 3 operation
+ * 	    PORTD [7:0] Control 7-Segment display
+ * Version: 20+
  */
 
 #include <xc.h>
