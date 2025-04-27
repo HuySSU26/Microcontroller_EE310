@@ -46,5 +46,10 @@ PROJECT # 4
 04/17/2025 - Add fully functional code ( main.c and 3 header files) for a security system project
            - The files are results of at least 20 revisions.  There are some redundancies between main.c and functions.h as results of trouble shooting.
            - Most bug and problems were hardware related.
-  
+
+PROJECT # 5
+04/27/2025 - Add fully functional code ( main.c and 3 header files) for Analogue to Digital Conversion project
+           - The files are the demonstrations of how to configure the PIC18F47K42 for its ADC funtionalities.
+           - The files also demonstrate interfacing a 16x2 LCD display to an output port of the PIC18/F47K42.
+           - The final working files are the result of several revisions.           
 
